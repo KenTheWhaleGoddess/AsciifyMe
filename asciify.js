@@ -1,26 +1,25 @@
-import Jimp from 'jimp';
-import Couleurs from 'couleurs';
-import terminalCharWidth from 'terminal-char-width';
-import windowSize from 'window-size';
+import Jimp from "jimp";
+import Couleurs from "couleurs";
+import terminalCharWidth from "terminal-char-width";
+import windowSize from "window-size";
 
 // Set of basic characters ordered by increasing "darkness"
 // Used as pixels in the ASCII image
-var chars = ' milady',
-    num_c = chars.length - 1;
-
+var chars = " milady",
+  num_c = chars.length - 1;
 
 export default function asciify(path, options) {
-    return new Promise(function(resolve, reject) {
-        asciify_core(path, options, function(err, asciified) {
-        if (err) {
-            reject(err);
-        } else {
-            resolve(asciified);
-        }
-        });
+  return new Promise(function (resolve, reject) {
+    asciify_core(path, options, function (err, asciified) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(asciified);
+      }
     });
+  });
 }
-      
+
 /**
  * The module's core functionality.
  *
@@ -30,79 +29,93 @@ export default function asciify(path, options) {
  *
  * @returns [void]
  */
-var asciify_core = function(path, opts, callback) {
+var asciify_core = function (path, opts, callback) {
   // First open image to get initial properties
-  Jimp.read(path, function(err, image) {
-    if (err) return callback('Error loading image: ' + err);
+  Jimp.read(path, function (err, image) {
+    if (err) return callback("Error loading image: " + err);
 
     // Percentage based widths
-    if (opts.width && opts.width.toString().substr(-1) === '%') {
-      opts.width = Math.floor((parseInt(opts.width.slice(0, -1)) / 100) * (windowSize.width * terminalCharWidth));
+    if (opts.width && opts.width.toString().substr(-1) === "%") {
+      opts.width = Math.floor(
+        (parseInt(opts.width.slice(0, -1)) / 100) *
+          (windowSize.width * terminalCharWidth)
+      );
     }
 
     // Percentage based heights
-    if (opts.height && opts.height.toString().substr(-1) === '%') {
-      opts.height = Math.floor((parseInt(opts.height.slice(0, -1)) / 100) * windowSize.height);
+    if (opts.height && opts.height.toString().substr(-1) === "%") {
+      opts.height = Math.floor(
+        (parseInt(opts.height.slice(0, -1)) / 100) * windowSize.height
+      );
     }
 
     // Setup options
     var options = {
-      fit:     opts.fit     ? opts.fit               : 'original',
-      width:   opts.width   ? parseInt(opts.width)   : image.bitmap.width,
-      height:  opts.height  ? parseInt(opts.height)  : image.bitmap.height,
+      fit: opts.fit ? opts.fit : "original",
+      width: opts.width ? parseInt(opts.width) : image.bitmap.width,
+      height: opts.height ? parseInt(opts.height) : image.bitmap.height,
       c_ratio: opts.c_ratio ? parseInt(opts.c_ratio) : 2,
 
-      color:      opts.color  == false    ? false : true,
-      as_string:  opts.format === 'array' ? false : true
-    }
+      color: opts.color == false ? false : true,
+      as_string: opts.format === "array" ? false : true,
+    };
 
     var new_dims = calculate_dims(image, options);
 
     // Resize to requested dimensions
     image.resize(new_dims[0], new_dims[1]);
 
-    var ascii = '';
-	var clrs= [];
+    var ascii = "";
+    var clrs = [];
     if (!options.as_string) ascii = [];
 
     // Normalization for the returned intensity so that it maps to a char
-    var norm  = (255 * 4 / num_c);
+    var norm = (255 * 4) / num_c;
 
     // Get and convert pixels
     var i, j, c;
-    for (j = 0; j < image.bitmap.height; j++) {        // height
+    for (j = 0; j < image.bitmap.height; j++) {
+      // height
 
       // Add new array if type
       if (!options.as_string) ascii.push([]);
 
-      for (i = 0; i < image.bitmap.width; i++) {       // width
-        for (c = 0; c < options.c_ratio; c++) {   // character ratio
+      for (i = 0; i < image.bitmap.width; i++) {
+        // width
+        for (c = 0; c < options.c_ratio; c++) {
+          // character ratio
 
           var next = chars.charAt(Math.round(intensity(image, i, j) / norm));
 
           // Color character using
           if (options.color) {
-			var clr = Jimp.intToRGBA(image.getPixelColor(i, j));
-			if (!clrs.includes(clr)) {
-				clrs.push(clr);
-			}
+            const isInRange = (a, b, range) => Math.abs(a - b) < range;
+
+            var clr = Jimp.intToRGBA(image.getPixelColor(i, j));
+            const foundColor = clrs.find(
+              (c) =>
+                isInRange(c.r, clr.r, 5) &&
+                isInRange(c.g, clr.g, 5) &&
+                isInRange(c.b, clr.b, 5)
+            );
+            if (!foundColor) {
+              clrs.push(clr);
+            }
+
             next = clrs.indexOf(clr).toString() + next;
           }
 
-          if (options.as_string)
-            ascii += next;
-
-          else
-            ascii[j].push(next);
+          if (options.as_string) ascii += next;
+          else ascii[j].push(next);
         }
       }
 
-      if (options.as_string && j != image.bitmap.height - 1) ascii += '\n';
+      if (options.as_string && j != image.bitmap.height - 1) ascii += "\n";
     }
 
     callback(null, [ascii, clrs]);
   });
-}
+};
 
 /**
  * Calculates the new dimensions of the image, given the options.
@@ -114,46 +127,48 @@ var asciify_core = function(path, opts, callback) {
  */
 var calculate_dims = function (img, opts) {
   switch (opts.fit) {
-
     // Scale down by width
-    case 'width':
+    case "width":
       return [opts.width, img.bitmap.height * (opts.width / img.bitmap.width)];
 
     // Scale down by height
-    case 'height':
-      return [img.bitmap.width * (opts.height / img.bitmap.height), opts.height];
+    case "height":
+      return [
+        img.bitmap.width * (opts.height / img.bitmap.height),
+        opts.height,
+      ];
 
     // Scale by width and height (ignore aspect ratio)
-    case 'none':
+    case "none":
       return [opts.width, opts.height];
 
     // Scale down to fit inside box matching width/height of options
-    case 'box':
-      var w_ratio = img.bitmap.width  / opts.width,
-          h_ratio = img.bitmap.height / opts.height,
-          neww, newh;
+    case "box":
+      var w_ratio = img.bitmap.width / opts.width,
+        h_ratio = img.bitmap.height / opts.height,
+        neww,
+        newh;
 
       if (w_ratio > h_ratio) {
-          newh = Math.round(img.bitmap.height / w_ratio);
-          neww = opts.width;
+        newh = Math.round(img.bitmap.height / w_ratio);
+        neww = opts.width;
       } else {
-          neww = Math.round(img.bitmap.width / h_ratio);
-          newh = opts.height;
+        neww = Math.round(img.bitmap.width / h_ratio);
+        newh = opts.height;
       }
       return [neww, newh];
 
     // Don't change width/height
     // Also the default in case of bad argument
-    case 'original':
+    case "original":
     default:
       // Let them know, but continue
-      if (opts.fit !== 'original')
+      if (opts.fit !== "original")
         console.error('Invalid option "fit", assuming "original"');
 
       return [img.bitmap.width, img.bitmap.height];
-
   }
-}
+};
 
 /**
  * Calculates the "intensity" at a point (x, y) in the image, (0, 0) being the
@@ -169,4 +184,4 @@ var calculate_dims = function (img, opts) {
 var intensity = function (i, x, y) {
   var color = Jimp.intToRGBA(i.getPixelColor(x, y));
   return color.r + color.g + color.b + color.a;
-}
+};
