@@ -1,5 +1,6 @@
 import { Alchemy, Network } from 'alchemy-sdk';
 import { createCanvas, registerFont } from 'canvas';
+import Jimp from 'jimp';
 
 import * as fs from 'fs';
 import sharp from 'sharp';
@@ -38,12 +39,15 @@ const page = await browser.newPage();
 
 // Set the viewport size to match the desired output size of the image
 await page.setViewport({ width: 1000, height: 1250 });
-const asciified = await asciify(image, options);
+const [asciified, colors] = await asciify(image, options);
 //console.log(asciified);
-
+page
+.on('console', message =>
+  console.log(`${message.type().toUpperCase()} ${message.text()}`));
 // Navigate to a blank page
+console.log(colors[1]);
 await page.goto('about:blank');
-await page.evaluate((asciiArt) => {
+await page.evaluate((asciiArt, colorMap) => {
 
         // Define the size of the canvas
         const canvasWidth = 1000;
@@ -55,9 +59,8 @@ await page.evaluate((asciiArt) => {
 
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
+        console.log(colorMap[1]);
 
-        console.log(canvas.width);
-        console.log(canvas.height);
         document.body.appendChild(canvas);
         // Draw the text onto the canvas
         ctx.font = '5px monospace';
@@ -68,23 +71,24 @@ await page.evaluate((asciiArt) => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const lines = asciiArt.split('\n');
-        console.log(lines.length);
-        console.log("hi");
+
         const lineHeight = 5; // Set the line height to match the font size
         const startY = centerY - (lines.length / 2) * lineHeight;
-        console.log(lines + "ABC");
         lines.forEach((line, index) => {
+            console.log(line);
             const y = startY + index * lineHeight;
             let x = centerX - ctx.measureText(line).width / 2;
-            console.log(line + "XYZ");
             while (line) {
-              const colorMatch = line.match(/^\u001b\[38;5;(\d+);(\d+);(\d+)m/);
+              const colorMatch = line.match(/^(\d+)/);
               if (colorMatch) {
-                const [match, r, g, b] = colorMatch;
-                console.log(colorMatch);
-                const rgbColor = [parseInt(r), parseInt(g), parseInt(b)];
-                ctx.fillStyle = `rgb(${rgbColor[0]}, ${rgbColor[1]}, ${rgbColor[2]})`;
-                line = line.substring(match.length);
+                const c = colorMatch[0];
+                if (colorMap[c]) {
+                    const rgbColor = [colorMap[c].r, colorMap[c].g, colorMap[c].b];
+                    ctx.fillStyle = `rgb(${rgbColor[0]}, ${rgbColor[1]}, ${rgbColor[2]})`;
+                } else {
+                    ctx.fillStyle = `black`;
+                }
+                line = line.substring(colorMatch.length);
               } else {
                 const char = line[0];
                 ctx.fillText(char, x, y);
@@ -93,7 +97,7 @@ await page.evaluate((asciiArt) => {
               }
             }
           });
-}, asciified);
+}, asciified, colors);
 
 // Take a screenshot of the canvas and save it as a PNG image
 await page.screenshot({ path: 'output/img/1.png', type: 'png', clip: { x: 5, y: 5, width: 1000, height: 1250 } });
