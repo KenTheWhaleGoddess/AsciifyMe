@@ -27,7 +27,7 @@ var options = {
     fit:    'none',
     width:  200,
     height: 250,
-    color: false
+    color: true
   }
 
 // Launch a headless browser instance
@@ -39,11 +39,10 @@ const page = await browser.newPage();
 // Set the viewport size to match the desired output size of the image
 await page.setViewport({ width: 1000, height: 1250 });
 const asciified = await asciify(image, options);
-console.log(asciified);
+//console.log(asciified);
 
 // Navigate to a blank page
 await page.goto('about:blank');
-
 await page.evaluate((asciiArt) => {
 
         // Define the size of the canvas
@@ -56,6 +55,9 @@ await page.evaluate((asciiArt) => {
 
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
+
+        console.log(canvas.width);
+        console.log(canvas.height);
         document.body.appendChild(canvas);
         // Draw the text onto the canvas
         ctx.font = '5px monospace';
@@ -66,12 +68,31 @@ await page.evaluate((asciiArt) => {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const lines = asciiArt.split('\n');
+        console.log(lines.length);
+        console.log("hi");
         const lineHeight = 5; // Set the line height to match the font size
         const startY = centerY - (lines.length / 2) * lineHeight;
+        console.log(lines + "ABC");
         lines.forEach((line, index) => {
             const y = startY + index * lineHeight;
-            ctx.fillText(line, centerX, y);
-        });
+            let x = centerX - ctx.measureText(line).width / 2;
+            console.log(line + "XYZ");
+            while (line) {
+              const colorMatch = line.match(/^\u001b\[38;5;(\d+);(\d+);(\d+)m/);
+              if (colorMatch) {
+                const [match, r, g, b] = colorMatch;
+                console.log(colorMatch);
+                const rgbColor = [parseInt(r), parseInt(g), parseInt(b)];
+                ctx.fillStyle = `rgb(${rgbColor[0]}, ${rgbColor[1]}, ${rgbColor[2]})`;
+                line = line.substring(match.length);
+              } else {
+                const char = line[0];
+                ctx.fillText(char, x, y);
+                x += ctx.measureText(char).width;
+                line = line.substring(1);
+              }
+            }
+          });
 }, asciified);
 
 // Take a screenshot of the canvas and save it as a PNG image
