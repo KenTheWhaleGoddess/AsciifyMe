@@ -62,6 +62,7 @@ var asciify_core = function(path, opts, callback) {
     image.resize(new_dims[0], new_dims[1]);
 
     var ascii = '';
+	var clrs= [];
     if (!options.as_string) ascii = [];
 
     // Normalization for the returned intensity so that it maps to a char
@@ -81,8 +82,11 @@ var asciify_core = function(path, opts, callback) {
 
           // Color character using
           if (options.color) {
-            var clr = Jimp.intToRGBA(image.getPixelColor(i, j));
-            next = Couleurs.fg(next, clr.r, clr.g, clr.b);
+			var clr = Jimp.intToRGBA(image.getPixelColor(i, j));
+			if (!clrs.includes(clr)) {
+				clrs.push(clr);
+			}
+            next = clrs.indexOf(clr).toString() + next;
           }
 
           if (options.as_string)
@@ -96,7 +100,7 @@ var asciify_core = function(path, opts, callback) {
       if (options.as_string && j != image.bitmap.height - 1) ascii += '\n';
     }
 
-    callback(null, ascii);
+    callback(null, [ascii, clrs]);
   });
 }
 
